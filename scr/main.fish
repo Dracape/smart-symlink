@@ -2,6 +2,11 @@
 # TODO
 # • Respect `$VERBOSE`
 # • Set link ownership to appropriate home directory
+# • Libraries
+# 	◦ Use a libary directory for functions
+# 		‣ Append to fish's function search path
+# 		‣ Also append subdirectories in the library directory
+# 	◦ Use `systemd-path` to determine library directory
 
 function exit_on_error --description 'Exit the script on error to prevent further mis-execution' --on-event fish_postexec
 	if test {$status} -ne 0
