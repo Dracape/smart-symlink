@@ -9,6 +9,7 @@
 # 		‣ Also append subdirectories in the library directory
 # 	◦ Use `systemd-path` to determine library directory
 # 	◦ Create functions for commands (with different names to that of the original) to automatically use sudo if permission is denied and handle verbosity
+# • Convert the script into a function and make a wrapper for the system to use
 # • Allow interactive use
 
 
@@ -45,12 +46,12 @@ end
 ### 1 argument → Set current directory as source
 if test (count {$argv}) -eq 1
 	set --global source_dir $PWD
-	set --global target_dir (path normalize {$argv[1]})
+	set --global target_dir (path normalize {$argv[1]} | string escape)
 ### 2 argument → Set 1st argument as Source & 2nd argument as Target 
 else
 	if test (count {$argv}) -eq 2
 		set --global source_dir (realpath {$argv[1]})
-		set --global target_dir (path normalize {$argv[2]})
+		set --global target_dir (path normalize {$argv[2]} | string escape)
 ### argument count != 1 or 2 → throw error
 	else
 		echo 'Invalid number of arguments' 1>&2
