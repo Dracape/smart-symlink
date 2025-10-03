@@ -1,19 +1,9 @@
-# Configure operation
-## Environment Variables
-if set -q VERBOSE
-	set --global --export VERBOSE -- '--verbose'
-end
-
-if ! set -q output_prefix # Define output
-	set --local output_prefix "$(status current-function)"': '
-
-	if ! status is-interactive
-		set --global output_prefix "$(status basename | path basename --no-extension)"': '"$(status current-function)"': '
-	end
-end
+# Behaviour setting
+## Variables
+_smart-symlink_behaviour-setting_variables VERBOSE output_prefix
 
 
-function smart-symlink --description 'Recursively symlinks a source directory to a target directory—linking whole directories if the contents are the same' --inherit-variable _flag_verbose
+function smart-symlink --description 'Recursively symlinks a source directory to a target directory—linking whole directories if the contents are the same'
 	## Arguments
 	### Switches
 	#### Parse
@@ -38,9 +28,7 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 
 
 	##### Verbose
-	if set -q _flag_verbose
-		set --export --function VERBOSE '--verbose'
-	end
+	_smart-symlink_behaviour-setting_variables 'VERBOSE'
 
 
 	### Positional
@@ -91,19 +79,17 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 
 
 	##  Recursive
-	cd "$target_dir" # To be able to get relative paths to that of $source_dir
-	sudo fd . ./ | while read --local item_path # Find all files and directories within the target, relative to itself
+	sudo fd . --base-directory "$target_dir" | while read --local item_path # Find all files and directories within the target, relative to itself
 		if ! test -e "$source_dir"/"$item_path" # Check if the file(s)/directories in the target are also in source
 			# A unique file/dir was found in the target. It is not a pure subset
 			if set -q VERBOSE # Verbosity announcement
-				echo {$output_prefix}'Unique file: '(path normalize "$target_dir"/"$item_path")
+				echo {$output_prefix}'Unique file: '"$target_dir"/"$item_path"
 			end
 
 			set --function impure_subset
 			break
 		end
 	end
-	cd -
 
 
 	### Action based on comparison
