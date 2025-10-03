@@ -1,26 +1,3 @@
-function smart-symlink --description 'Recursively symlinks a source directory to a target directory—linking whole directories if the contents are the same' --inherit-variable _flag_verbose
-
-
-
-	# Configure operation
-	## Environment Variables
-	if set -q VERBOSE
-		alias ln 'ln --verbose'
-		alias rm 'rm --verbose'
-
-		function sudo; command sudo $argv --verbose; end
-	end
-
-	if ! set -q output_prefix # Define output
-		if status is-interactive
-			set --function echo_prefix "$(status current-function)"': '
-		else
-			set --function echo_prefix echo_prefix="$(status basename | path basename --no-extension)"': '
-		end
-	end
-
-
-
 	## Arguments
 	### Switches
 	#### Parse
@@ -46,7 +23,7 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 
 	##### Verbose
 	if set -q _flag_verbose
-		set --export --function VERBOSE
+		set --export --function VERBOSE '--verbose'
 	end
 
 
@@ -85,14 +62,14 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 			echo {$output_prefix}\"{$target_dir}\"' Does not exist, symlinking entire directory'
 		end
 	
-		ln -s "$source_dir" "$target_dir"
+		ln {$VERBOSE} -s "$source_dir" "$target_dir"
 		return 0
 	end
 
 	### If target is not a directory, it's a conflict. Overwrite it as a symlink.
 	if ! test -d "$target_dir"
 		echo {$output_prefix}'Warning: Target "'{$target_dir}'" is a file Replacing with symlink' 1>&2
-		sudo ln -sfn "$source_dir" "$target_dir"
+		sudo ln {$VERBOSE} -sfn "$source_dir" "$target_dir"
 		return 0
 	end
 
@@ -119,8 +96,8 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 			echo {$output_prefix}'Pure subset directory: '{$target_dir}
 		end
 	
-		sudo rm -rf "$target_dir"
-		sudo ln -sf "$source_dir" "$target_dir"
+		sudo rm {$VERBOSE} -rf "$target_dir"
+		sudo ln {$VERBOSE} -sf "$source_dir" "$target_dir"
 	else # Target has unique files. Preserve them by linking contents individually
 		for item in (command ls -A "$source_dir") # Items in source content
 			set --local source_item "$source_dir"/"$item"
@@ -135,8 +112,8 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 				set --local function_name (status current-function)
 				"$function_name" "$source_item" "$target_item"
 			else
-				sudo rm -f "$target_item" # Remove target item if it exists
-				sudo ln -sfn "$source_item" "$target_item"
+				sudo rm {$VERBOSE} -f "$target_item" # Remove target item if it exists
+				sudo ln {$VERBOSE} -sfn "$source_item" "$target_item"
 			end
 		end
 	end

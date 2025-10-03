@@ -10,5 +10,25 @@
 # • Allow interactive use
 # • Make variables for customization
 
-source "$(systemd-path system-library-arch)"'/smart-symlink/main.fish'
-smart-symlink {$argv}
+# Load shared libraries
+begin
+	set --global fish_function_path_backup {$fish_function_path}
+
+	set --local local_libraries "$(systemd-path system-library-arch)"'/'"$(status current-function)"
+	set --global --append fish_function_path {local_libraries} # Add main-directory to functions path
+	set --global --append fish_function_path (fd . -d "$(local_libraries)") # Add sub-directories to functions paht
+end
+
+# Configure operation
+## Environment Variables
+if set -q VERBOSE
+	set --global --export VERBOSE -- '--verbose'
+end
+
+if ! set -q output_prefix # Define output
+	set --local output_prefix "$(status current-function)"': '
+
+	if ! status is-interactive
+		set --global output_prefix "$(status basename | path basename --no-extension)"': '"$(status current-function)"': '
+	end
+end
