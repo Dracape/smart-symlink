@@ -1,6 +1,5 @@
 #!/usr/bin/env fish
 # TODO
-# • fix Pure subset detection
 # • Respect `$VERBOSE`
 # • Set link ownership to appropriate home directory
 # • Libraries
@@ -45,12 +44,12 @@ end
 ## Positional
 ### 1 argument → Set current directory as source
 if test (count {$argv}) -eq 1
-	set --global source_dir $PWD
+	set --global source_dir (string escape {$PWD})
 	set --global target_dir (path normalize {$argv[1]} | string escape)
 ### 2 argument → Set 1st argument as Source & 2nd argument as Target 
 else
 	if test (count {$argv}) -eq 2
-		set --global source_dir (realpath {$argv[1]})
+		set --global source_dir (realpath {$argv[1]} | string escape)
 		set --global target_dir (path normalize {$argv[2]} | string escape)
 ### argument count != 1 or 2 → throw error
 	else
@@ -100,19 +99,21 @@ end
 
 
 ##  Recursive
-sudo fd . "$target_dir" | while read --local item_path
+cd "$target_dir"
+sudo fd . ./ | while read --local item_path
 	# Find all files and directories within the target, relative to itself
 	if ! test -e "$source_dir"/"$item_path"
 		# A unique file/dir was found in the target. It is not a pure subset
 		# Verbosity announcement
 		if set -q VERBOSE
-			echo "$(status basename)"': Unique file: '"$target_dir"/"$item_path"
+			echo "$(status basename)"': Unique file: '(path normalize "$target_dir"/"$item_path")
 		end
 
 		set --function impure_subset
 		break
 	end
 end
+cd -
 
 
 ### Action based on comparison
