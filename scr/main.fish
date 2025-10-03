@@ -1,144 +1,14 @@
 #!/usr/bin/env fish
 # TODO
-# • Set link ownership to appropriate home directory
 # • Libraries
+# 	◦ Use `systemd-path` to determine library directory
 # 	◦ Use a libary directory for functions
 # 		‣ Append to fish's function search path
 # 		‣ Also append subdirectories in the library directory
-# 	◦ Use `systemd-path` to determine library directory
 # 	◦ Create functions for commands (with different names to that of the original) to automatically use sudo if permission is denied and handle verbosity
-# • Convert the script into a function and make a wrapper for the system to use
-# 	◦ Variable scopes
-# 	◦ Output stream announcement
-# 	◦ Re-operation: call the function again instead of the wrapper
+# • Set link ownership to appropriate home directory (use `__fish_print_users`)
 # • Allow interactive use
+# • Make variables for customization
 
-
-# Handle Arguments
-## Switches
-### Parse
-argparse 'v/verbose' 'h/help' -- $argv
-
-
-### Individual
-#### Help
-if set -q _flag_help
-	echo 'Smartly symlink SOURCE_DIR to TARGET.'\n
-	set_color --bold --underline; echo -n 'Usage:'; set_color normal; echo ' '(status current-function)' [OPTION] SOURCE_DIR TARGET'\n
-	set_color --bold --underline; echo 'Arguments:'; set_color normal; echo \t'<paths>…'\n
-
-	set_color --bold --underline; echo 'Options:'; set_color normal
-	set_color --bold; echo -n -- '  -h'; set_color normal; echo -n ', '; set_color --bold; echo -- '--help'; set_color normal
-	echo \t'Print help'
-	set_color --bold; echo -n -- '  -v'; set_color normal; echo -n ', '; set_color --bold; echo -- '--verbose'; set_color normal
-	echo -n \t'explicitly state what is being done'\n\t'[Env: '; set_color --italics; echo -n 'VERBOSE'; set_color normal; echo ']' 
-
-	return 0
-end
-
-
-#### Verbose
-if set -q _flag_verbose _flag_v
-	set --export --global VERBOSE
-end
-
-
-## Positional
-### 1 argument → Set current directory as source
-if test (count {$argv}) -eq 1
-	set --global source_dir (string escape {$PWD})
-	set --global target_dir (path normalize {$argv[1]} | string escape)
-### 2 argument → Set 1st argument as Source & 2nd argument as Target 
-else
-	if test (count {$argv}) -eq 2
-		set --global source_dir (realpath {$argv[1]} | string escape)
-		set --global target_dir (path normalize {$argv[2]} | string escape)
-### argument count != 1 or 2 → throw error
-	else
-		echo 'Invalid number of arguments' 1>&2
-		return 1
-	set --erase argv
-	end
-end
-
-
-
-# Command verbosity
-if set -q VERBOSE
-	alias ln 'ln --verbose'
-	alias rm 'rm --verbose'
-
-	function sudo; command sudo $argv --verbose; end
-end
-
-
-
-# Conditional operation
-## Simple non-recursive
-### Ensure source is a valid directory
-if ! path is -d "$source_dir"
-	echo "$(status basename)"': Not a directory: '{$source_dir} 1>&2
-	return 1
-end
-
-### If target doesn't exist, simply create a symlink to the source and exit
-if ! test -e "$target_dir"
-	if set -q VERBOSE # Verbosity announcement
-		echo \"{$target_dir}\"' Does not exist, symlinking entire directory'
-	end
-
-	ln -s "$source_dir" "$target_dir"
-	return 0
-end
-
-### If target is not a directory, it's a conflict. Overwrite it as a symlink.
-if ! test -d "$target_dir"
-	echo "$(status basename)"': Warning: Target "'{$target_dir}'" is a file Replacing with symlink' 1>&2
-	sudo ln -sfn "$source_dir" "$target_dir"
-	return 0
-end
-
-
-##  Recursive
-cd "$target_dir" # To be able to get relative paths to that of $source_dir
-sudo fd . ./ | while read --local item_path # Find all files and directories within the target, relative to itself
-	if ! test -e "$source_dir"/"$item_path" # Check if the file(s)/directories in the target are also in source
-		# A unique file/dir was found in the target. It is not a pure subset
-		if set -q VERBOSE # Verbosity announcement
-			echo "$(status basename)"': Unique file: '(path normalize "$target_dir"/"$item_path")
-		end
-
-		set --function impure_subset
-		break
-	end
-end
-cd -
-
-
-### Action based on comparison
-if ! set -q impure_subset # Target is a "pure" subset. Remove it and link the source directory
-	if set -q VERBOSE # Verbosity announcement
-		echo "$(status basename)"': Pure subset directory: '{$target_dir}
-	end
-	
-	sudo rm -rf "$target_dir"
-	sudo ln -sf "$source_dir" "$target_dir"
-else # Target has unique files. Preserve them by linking contents individually
-	for item in (command ls -A "$source_dir") # Items in source content
-		set --local source_item "$source_dir"/"$item"
-		set --local target_item "$target_dir"/"$item"
-
-		if path is -d "$source_item"
-			# If the source item is a directory, recurse
-			if set -q VERBOSE # Verbosity announcement
-				echo "$(status basename)"': '"$(status current-function)"': Re-operating on directory in Super-set "'{$target_dir}'": '{$target_item}
-			end
-			
-			set --local script_path (status current-filename)
-			"$script_path" "$source_item" "$target_item"
-		else
-			sudo rm -f "$target_item" # Remove target item if it exists
-			sudo ln -sfn "$source_item" "$target_item"
-		end
-	end
-end
+source "$(systemd-path system-library-arch)"'/smart-symlink/main.fish'
+smart-symlink {$argv}
