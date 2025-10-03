@@ -1,5 +1,6 @@
 #!/usr/bin/env fish
 # TODO
+# • fix Pure subset detection
 # • Respect `$VERBOSE`
 # • Set link ownership to appropriate home directory
 # • Libraries
@@ -7,12 +8,8 @@
 # 		‣ Append to fish's function search path
 # 		‣ Also append subdirectories in the library directory
 # 	◦ Use `systemd-path` to determine library directory
-
-function exit_on_error --description 'Exit the script on error to prevent further mis-execution' --on-event fish_postexec
-	if test {$status} -ne 0
-		exit 1
-	end
-end
+# 	◦ Create functions for commands (with different names to that of the original) to automatically use sudo if permission is denied and handle verbosity
+# • Allow interactive use
 
 
 # Handle Arguments
@@ -48,17 +45,19 @@ end
 ### 1 argument → Set current directory as source
 if test (count {$argv}) -eq 1
 	set --global source_dir $PWD
-	set --global target_dir (realpath {$argv[1]})
+	set --global target_dir (path normalize {$argv[1]})
 ### 2 argument → Set 1st argument as Source & 2nd argument as Target 
-else if test (count {$argv}) -eq 2
-	set --global source_dir (realpath {$argv[1]})
-	set --global target_dir (realpath {$argv[2]})
-end
-### argument count != 1 or 2 → throw error
 else
-	echo 'Invalid number of arguments' 1>&2
-	return 1
-set --erase argv
+	if test (count {$argv}) -eq 2
+		set --global source_dir (realpath {$argv[1]})
+		set --global target_dir (path normalize {$argv[2]})
+### argument count != 1 or 2 → throw error
+	else
+		echo 'Invalid number of arguments' 1>&2
+		return 1
+	set --erase argv
+	end
+end
 
 
 
@@ -76,7 +75,7 @@ end
 ## Simple non-recursive
 ### Ensure source is a valid directory
 if ! path is -d "$source_dir"
-	echo "$(status basename)"': '"$(status current-function)"': Not a directory: '{$source_dir} 1>&2
+	echo "$(status basename)"': Not a directory: '{$source_dir} 1>&2
 	return 1
 end
 
@@ -93,20 +92,20 @@ end
 
 ### If target is not a directory, it's a conflict. Overwrite it as a symlink.
 if ! test -d "$target_dir"
-	echo (status basename)': '(status current-function)': Warning: Target "'{$target_dir}'" is a file Replacing with symlink' 1>&2
+	echo "$(status basename)"': Warning: Target "'{$target_dir}'" is a file Replacing with symlink' 1>&2
 	sudo ln -sfn "$source_dir" "$target_dir"
 	return 0
 end
 
 
 ##  Recursive
-sudo fd . --absolute-path "$target_dir" | while read --local item_paths
+sudo fd . "$target_dir" | while read --local item_path
 	# Find all files and directories within the target, relative to itself
-	if ! test -e {$source_dir}/{$item_path}
+	if ! test -e "$source_dir"/"$item_path"
 		# A unique file/dir was found in the target. It is not a pure subset
 		# Verbosity announcement
 		if set -q VERBOSE
-			echo (status basename)': '(status current-function)': Unique file: '{$target_dir}/{$item_path}
+			echo "$(status basename)"': Unique file: '"$target_dir"/"$item_path"
 		end
 
 		set --function impure_subset
@@ -115,28 +114,28 @@ sudo fd . --absolute-path "$target_dir" | while read --local item_paths
 end
 
 
-## Action based on comparison
+### Action based on comparison
 if ! set -q impure_subset # Target is a "pure" subset. Remove it and link the source directory
 	# Verbosity announcement
 	if set -q VERBOSE
-		echo (status basename)': '(status current-function)': Pure subset directory: '{$target_dir}
+		echo "$(status basename)"': Pure subset directory: '{$target_dir}
 	end
 	
 	sudo rm -rf "$target_dir"
-	sudo ln -sf {$source_dir} {$target_dir}
+	sudo ln -sf "$source_dir" "$target_dir"
 else # Target has unique files. Preserve them by linking contents individually
 	set --local source_content (command ls -A "$source_dir")
 	for item in {$source_content}
-		set --local source_item {$source_dir}/{$item}
-		set --local target_item {$target_dir}/{$item}
+		set --local source_item "$source_dir"/"$item"
+		set --local target_item "$target_dir"/"$item"
 
 		if path is -d "$source_item"
 			# If the source item is a directory, recurse
-			set --local function_name (status current-function)
-			$function_name {$source_item} {$target_item}
+			set --local script_path (status current-filename)
+			"$script_path" "$source_item" "$target_item"
 		else
-			sudo rm -f {$target_item} # Remove target item if it exists
-			sudo ln -sfn {$source_item} {$target_item}
+			sudo rm -f "$target_item" # Remove target item if it exists
+			sudo ln -sfn "$source_item" "$target_item"
 		end
 	end
 end
