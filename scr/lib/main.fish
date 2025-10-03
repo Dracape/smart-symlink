@@ -1,6 +1,6 @@
 # Behaviour setting
-## Variables
-_smart-symlink_behaviour-setting_variables VERBOSE output_prefix
+## Variables (without any equivalent argument != VERBOSE)
+_smart-symlink_behaviour-setting_variables 'output_prefix'
 
 
 function smart-symlink --description 'Recursively symlinks a source directory to a target directory—linking whole directories if the contents are the same'
@@ -8,9 +8,11 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 	### Switches
 	#### Parse
 	argparse 'v/verbose' 'h/help' -- "$argv"
-
-
 	#### Individual
+	##### Verbose
+	_smart-symlink_behaviour-setting_variables 'VERBOSE'
+
+
 	##### Help
 	if set -q _flag_help
 		echo 'Smartly symlink SOURCE_DIR to TARGET.'\n
@@ -27,8 +29,6 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 	end
 
 
-	##### Verbose
-	_smart-symlink_behaviour-setting_variables 'VERBOSE'
 
 
 	### Positional
