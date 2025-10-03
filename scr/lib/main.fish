@@ -1,3 +1,19 @@
+# Configure operation
+## Environment Variables
+if set -q VERBOSE
+	set --global --export VERBOSE -- '--verbose'
+end
+
+if ! set -q output_prefix # Define output
+	set --local output_prefix "$(status current-function)"': '
+
+	if ! status is-interactive
+		set --global output_prefix "$(status basename | path basename --no-extension)"': '"$(status current-function)"': '
+	end
+end
+
+
+function smart-symlink --description 'Recursively symlinks a source directory to a target directory—linking whole directories if the contents are the same' --inherit-variable _flag_verbose
 	## Arguments
 	### Switches
 	#### Parse
@@ -10,13 +26,13 @@
 		echo 'Smartly symlink SOURCE_DIR to TARGET.'\n
 		set_color --bold --underline; echo -n 'Usage:'; set_color normal; echo ' '(status current-function)' [OPTION] SOURCE_DIR TARGET'\n
 		set_color --bold --underline; echo 'Arguments:'; set_color normal; echo \t'<paths>…'\n
-	
+
 		set_color --bold --underline; echo 'Options:'; set_color normal
 		set_color --bold; echo -n -- '  -h'; set_color normal; echo -n ', '; set_color --bold; echo -- '--help'; set_color normal
 		echo \t'Print help'
 		set_color --bold; echo -n -- '  -v'; set_color normal; echo -n ', '; set_color --bold; echo -- '--verbose'; set_color normal
 		echo -n \t'explicitly state what is being done'\n\t'[Env: '; set_color --italics; echo -n 'VERBOSE'; set_color normal; echo ']' 
-	
+
 		return 0
 	end
 
@@ -61,7 +77,7 @@
 		if set -q VERBOSE # Verbosity announcement
 			echo {$output_prefix}\"{$target_dir}\"' Does not exist, symlinking entire directory'
 		end
-	
+
 		ln {$VERBOSE} -s "$source_dir" "$target_dir"
 		return 0
 	end
@@ -82,7 +98,7 @@
 			if set -q VERBOSE # Verbosity announcement
 				echo {$output_prefix}'Unique file: '(path normalize "$target_dir"/"$item_path")
 			end
-	
+
 			set --function impure_subset
 			break
 		end
@@ -95,20 +111,20 @@
 		if set -q VERBOSE # Verbosity announcement
 			echo {$output_prefix}'Pure subset directory: '{$target_dir}
 		end
-	
+
 		sudo rm {$VERBOSE} -rf "$target_dir"
 		sudo ln {$VERBOSE} -sf "$source_dir" "$target_dir"
 	else # Target has unique files. Preserve them by linking contents individually
-		for item in (command ls -A "$source_dir") # Items in source content
+		for item in (ls -A "$source_dir") # Items in source content
 			set --local source_item "$source_dir"/"$item"
 			set --local target_item "$target_dir"/"$item"
-	
+
 			if path is -d "$source_item"
 				# If the source item is a directory, recurse
 				if set -q VERBOSE # Verbosity announcement
 					echo {$output_prefix}"$(status current-function)"': Re-operating on directory in Super-set "'{$target_dir}'": '{$target_item}
 				end
-				
+
 				set --local function_name (status current-function)
 				"$function_name" "$source_item" "$target_item"
 			else
