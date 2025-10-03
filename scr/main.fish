@@ -1,6 +1,5 @@
 #!/usr/bin/env fish
 # TODO
-# • Respect `$VERBOSE`
 # • Set link ownership to appropriate home directory
 # • Libraries
 # 	◦ Use a libary directory for functions
@@ -9,6 +8,9 @@
 # 	◦ Use `systemd-path` to determine library directory
 # 	◦ Create functions for commands (with different names to that of the original) to automatically use sudo if permission is denied and handle verbosity
 # • Convert the script into a function and make a wrapper for the system to use
+# 	◦ Variable scopes
+# 	◦ Output stream announcement
+# 	◦ Re-operation: call the function again instead of the wrapper
 # • Allow interactive use
 
 
@@ -81,8 +83,7 @@ end
 
 ### If target doesn't exist, simply create a symlink to the source and exit
 if ! test -e "$target_dir"
-	# Verbosity announcement
-	if set -q VERBOSE
+	if set -q VERBOSE # Verbosity announcement
 		echo \"{$target_dir}\"' Does not exist, symlinking entire directory'
 	end
 
@@ -99,13 +100,11 @@ end
 
 
 ##  Recursive
-cd "$target_dir"
-sudo fd . ./ | while read --local item_path
-	# Find all files and directories within the target, relative to itself
-	if ! test -e "$source_dir"/"$item_path"
+cd "$target_dir" # To be able to get relative paths to that of $source_dir
+sudo fd . ./ | while read --local item_path # Find all files and directories within the target, relative to itself
+	if ! test -e "$source_dir"/"$item_path" # Check if the file(s)/directories in the target are also in source
 		# A unique file/dir was found in the target. It is not a pure subset
-		# Verbosity announcement
-		if set -q VERBOSE
+		if set -q VERBOSE # Verbosity announcement
 			echo "$(status basename)"': Unique file: '(path normalize "$target_dir"/"$item_path")
 		end
 
@@ -118,21 +117,23 @@ cd -
 
 ### Action based on comparison
 if ! set -q impure_subset # Target is a "pure" subset. Remove it and link the source directory
-	# Verbosity announcement
-	if set -q VERBOSE
+	if set -q VERBOSE # Verbosity announcement
 		echo "$(status basename)"': Pure subset directory: '{$target_dir}
 	end
 	
 	sudo rm -rf "$target_dir"
 	sudo ln -sf "$source_dir" "$target_dir"
 else # Target has unique files. Preserve them by linking contents individually
-	set --local source_content (command ls -A "$source_dir")
-	for item in {$source_content}
+	for item in (command ls -A "$source_dir") # Items in source content
 		set --local source_item "$source_dir"/"$item"
 		set --local target_item "$target_dir"/"$item"
 
 		if path is -d "$source_item"
 			# If the source item is a directory, recurse
+			if set -q VERBOSE # Verbosity announcement
+				echo "$(status basename)"': '"$(status current-function)"': Re-operating on directory in Super-set "'{$target_dir}'": '{$target_item}
+			end
+			
 			set --local script_path (status current-filename)
 			"$script_path" "$source_item" "$target_item"
 		else
