@@ -1,7 +1,7 @@
 # Behaviour setting
 ## Variables
 ### Output prefix
-if ! set -qg output_prefix # Define only if not already set from the caller
+if ! set -q output_prefix # Define only if not already set from the caller
 	set --function output_prefix "$(status current-function)"': '
 
 	if ! status is-interactive
@@ -10,7 +10,7 @@ if ! set -qg output_prefix # Define only if not already set from the caller
 end
 
 ### Verbose
-if set -qg VERBOSE
+if set -q VERBOSE
 	set --function --export VERBOSE -- '--verbose'
 end
 
@@ -41,7 +41,7 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 		set_color --bold; echo -n -- '  -v'; set_color normal; echo -n ', '; set_color --bold; echo -- '--verbose'
 		set_color normal; echo -n \t'Show more information'\n\t'[Variable: '; set_color --italics; echo -n 'VERBOSE'; set_color normal; echo ']' 
 
-		if set -ql VERBOSE
+		if set -q VERBOSE
 			set_color --bold --underline; echo \n'Variables:'
 			set_color --bold normal; echo '  VERBOSE'
 			set_color normal; echo \t'Show more information'
