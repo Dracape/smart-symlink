@@ -1,20 +1,36 @@
 # Behaviour setting
-## Variables (without any equivalent argument != VERBOSE)
-_smart-symlink_behaviour-setting_variables 'output_prefix'
+## Variables
+### Output prefix
+if ! set -qg output_prefix # Define only if not already set from the caller
+	set --function output_prefix "$(status current-function)"': '
+
+	if ! status is-interactive
+		set --function --append output_prefix "$(status basename | path basename --no-extension)"': '
+	end
+end
+
+### Verbose
+if set -qg VERBOSE
+	set --function --export VERBOSE -- '--verbose'
+end
 
 
 function smart-symlink --description 'Recursively symlinks a source directory to a target directory—linking whole directories if the contents are the same'
 	## Arguments
 	### Switches
 	#### Parse
-	argparse 'v/verbose' 'h/help' -- "$argv"
+	argparse 'v/verbose&' 'h/help&' -- "$argv"
 	#### Individual
 	##### Verbose
-	_smart-symlink_behaviour-setting_variables 'VERBOSE'
+	if set -ql _flag_verbose
+		if ! set -qfx VERBOSE # Only if not set above
+			set --function --export VERBOSE -- '--verbose'
+		end
+	end
 
 
 	##### Help
-	if set -q _flag_help
+	if set -ql _flag_help
 		echo 'Smartly symlink SOURCE_DIR to TARGET.'\n
 		set_color --bold --underline; echo -n 'Usage:'; set_color normal; echo ' '(status current-function)' [OPTION] SOURCE_DIR TARGET'\n
 		set_color --bold --underline; echo 'Arguments:'; set_color normal; echo \t'<paths>…'\n
@@ -25,11 +41,14 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 		set_color --bold; echo -n -- '  -v'; set_color normal; echo -n ', '; set_color --bold; echo -- '--verbose'
 		set_color normal; echo -n \t'Show more information'\n\t'[Variable: '; set_color --italics; echo -n 'VERBOSE'; set_color normal; echo ']' 
 
-		if set -q VERBOSE
+		if set -ql VERBOSE
 			set_color --bold --underline; echo \n'Variables:'
 			set_color --bold normal; echo '  VERBOSE'
 			set_color normal; echo \t'Show more information'
 			set_color normal; echo -n \t'[Switch: '; set_color --italics; echo -n -- '-v';set_color normal; echo -n ', ';set_color --italics ; echo -n -- '--verbose' ; set_color normal; echo ']'
+			
+			set_color --bold; echo '  output_prefix'
+			set_color normal; echo \t'Change echo\'s default output prefix'
 		end
 		
 		return 0
@@ -69,7 +88,7 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 
 	### If target doesn't exist, simply create a symlink to the source and exit
 	if ! test -e "$target_dir"
-		if set -q VERBOSE # Verbosity announcement
+		if set -ql VERBOSE # Verbosity announcement
 			echo {$output_prefix}\"{$target_dir}\"' Does not exist, symlinking entire directory'
 		end
 
@@ -100,11 +119,12 @@ function smart-symlink --description 'Recursively symlinks a source directory to
 
 
 	### Action based on comparison
-	if ! set -q impure_subset # Target is a "pure" subset. Remove it and link the source directory
+	if ! set -qf impure_subset # Target is a "pure" subset. Remove it and link the source directory
 		if set -q VERBOSE # Verbosity announcement
 			echo {$output_prefix}'Pure subset directory: '{$target_dir}
 		end
 
+		set --erase -f impure_subset
 		sudo rm {$VERBOSE} -rf "$target_dir"
 		sudo ln {$VERBOSE} -sf "$source_dir" "$target_dir"
 	else # Target has unique files. Preserve them by linking contents individually
