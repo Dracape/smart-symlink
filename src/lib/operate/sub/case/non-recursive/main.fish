@@ -20,3 +20,4 @@ function _smart-symlink_operate_non-recursive --description 'Simple, Non-recursi
 		sudo ln {$VERBOSE} -sfn "$source_dir" "$target_dir"
 		exit 0
 	end
+end
