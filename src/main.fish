@@ -5,14 +5,14 @@
 # 	◦ Create functions for commands to automatically set the permissions to the directory's ownership (using stat -c %[U|G])
 # • Allow interactive use (without force or interactive option; determine what to use on the basis of `status is-interactive`)
 # • Make variables for customization
-
+set --local script_name "$(status basename | path change-extension \0)"
 
 
 
 # Behaviour setting
 ## Variables
 ### Output prefix
-set --global output_prefix "$(status basename | path change-extension \0)"': '
+set --global output_prefix {$script_name}': '
 
 ### Verbose
 if set -qlx VERBOSE
@@ -44,13 +44,13 @@ end
 ### Positional
 #### 1 argument → Set current directory as source
 if test (count {$argv}) -eq 1
-	set --function source_dir (string escape {$PWD})
-	set --function target_dir (path normalize {$argv[1]} | string escape)
+	set --global source_dir (string escape {$PWD})
+	set --global target_dir (path normalize {$argv[1]} | string escape)
 #### 2 argument → Set 1st argument as Source & 2nd argument as Target
 else
 	if test (count {$argv}) -eq 2
-		set --function source_dir (realpath {$argv[1]} | string escape)
-		set --function target_dir (path normalize {$argv[2]} | string escape)
+		set --global source_dir (realpath {$argv[1]} | string escape)
+		set --global target_dir (path normalize {$argv[2]} | string escape)
 #### argument count != 1 or 2 → throw error
 	else
 		echo {$output_prefix}'Invalid number of arguments' 1>&2
@@ -62,4 +62,4 @@ end
 
 
 
-_smart-symlink_operate # Main Operation
+_"$script_name"_operate # Main Operation
